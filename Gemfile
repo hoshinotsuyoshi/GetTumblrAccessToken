@@ -1,4 +1,7 @@
-source :rubygems
+source "https://rubygems.org"
+ruby "2.0.0"
 gem 'sinatra'
 gem 'haml'
-gem 'oauth'
+gem 'sass'
+gem 'rack-test'
+gem 'tumblr_wrapper'

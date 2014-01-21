@@ -3,18 +3,22 @@
   %div.control-group
     %label.control-label Consumer Key
     %div.controls
-      %label.key #{@consumer_key}
+      %label.key
+        = @consumer_key
   %div.control-group
     %label.control-label Consumer Secret Key
     %div.controls
-      %label.key #{@consumer_secret}
+      %label.key
+        = @consumer_secret
   %div.control-group
     %label.control-label Access Token
     %div.controls
       %label.key.success 
-        %strong #{@access_token}
+        %strong
+          = @access_token
   %div.control-group
     %label.control-label Access Token Secret
     %div.controls
       %label.key.success
-        %strong #{@access_token_secret}
+        %strong
+          = @access_token_secret

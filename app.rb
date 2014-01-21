@@ -1,97 +1,59 @@
 # coding: utf-8
-require 'rubygems'
 require 'sinatra'
-require 'logger'
 require 'net/http'
 require 'haml'
 require 'sass'
-require 'oauth'
-require 'pp'
+require 'tumblr_wrapper'
 
 use Rack::Session::Pool, :expire_after => 2592000 # instead of "enable :sessions" to encrypt
 
 CALLBACK_URL = 'http://gettumblraccesstoken.heroku.com/callback'
 
-configure do
-    Log = Logger.new(STDOUT)
-    if ENV["http_proxy"]
-        Log.info "http_proxy ==> #{ENV["http_proxy"]}"
-    end
-end
-
 get '/style.css' do
-    sass :stylesheet
+  sass :stylesheet
 end
-
 
 get '/' do
-    haml :page_form
+  haml :page_form
 end
-
 
 post '/' do
-    consumer_key = params[:consumer_key]
-    consumer_secret = params[:consumer_secret]
+  TumblrWrapper.consumer_key = params[:consumer_key]
+  TumblrWrapper.consumer_secret = params[:consumer_secret]
+  client = TumblrWrapper::Client.new
 
-    consumer = OAuth::Consumer.new(
-        consumer_key, consumer_secret, {
-            :site => "http://api.tumblr.com",
-            :proxy=>ENV["http_proxy"],
-            :request_token_url => 'http://www.tumblr.com/oauth/request_token'
-        })
-    begin
-        #request_token = consumer.get_request_token({:oauth_callback=>CALLBACK_URL})
-        request_token = consumer.get_request_token
-    rescue => exc
-        Log.warn "Fail to get_request_token. #{exc}"
-        @error_message = exc.to_s
-        if @error_message.index('400')
-            @error_message += ": Did you set the Default callback URL of your app?"
-        end
-        @consumer_key = consumer_key
-        @consumer_secret = consumer_secret
-        return haml :page_form
-    end
-    pp request_token
-    authorize_url = request_token.authorize_url
-    Log.info "authorize_url===>#{authorize_url}"
+  session["consumer_key"] = TumblrWrapper.consumer_key
+  session["consumer_secret"] = TumblrWrapper.consumer_secret
+  authorize_url = client.authorize_url
+  session["request_token"] = client.request_token.token
+  session["request_token_secret"] = client.request_token.secret
 
-    session["consumer_key"] = consumer_key
-    session["consumer_secret"] = consumer_secret
-    session["request_token"] = request_token
-
-    redirect authorize_url
+  redirect authorize_url
 end
 
-
 get '/callback' do
-    oauth_verifier = params[:oauth_verifier]
-    Log.info "oauth_verifier===>#{oauth_verifier}"
-    request_token = session["request_token"]
-    begin
-        access_token = request_token.get_access_token(:oauth_verifier => oauth_verifier)
-    rescue => exc
-        Log.warn "Fail to get_access_token. #{exc}"
-        @error_message = 'Failed to get access token.'
-        @consumer_key = session["consumer_key"]
-        @consumer_secret = session["consumer_secret"]
-        return haml :page_form
-    end
-    session.clear
+  oauth_verifier = params[:oauth_verifier]
 
-    @consumer_key = access_token.consumer.key
-    @consumer_secret = access_token.consumer.secret
-    @access_token = access_token.token
-    @access_token_secret = access_token.secret
+  #request_token = session["request_token"]
+  TumblrWrapper.consumer_key = session["consumer_key"]
+  TumblrWrapper.consumer_secret = session["consumer_secret"]
+  client = TumblrWrapper::Client.new
+  client.build_request_token(session["request_token"], session["request_token_secret"])
+  access_token = client.request_access_token(oauth_verifier)
 
-    haml :page_result
+  @consumer_key        = access_token[:consumer_key]
+  @consumer_secret     = access_token[:consumer_secret]
+  @access_token        = access_token[:token]
+  @access_token_secret = access_token[:token_secret]
+
+  haml :page_result
 end
 
 
 not_found do
-    "NOT FOUND!"
+  "NOT FOUND!"
 end
 
 error do
-    "ERROR!"
+  "ERROR!"
 end
